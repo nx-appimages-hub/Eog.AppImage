@@ -9,29 +9,27 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-PWD:=$(shell pwd)
+PWD := $(shell pwd)
+
+DOCKER_COMPOSE:=docker-compose -f $(PWD)/docker-compose.yaml
+
+.EXPORT_ALL_VARIABLES:
+CID=$(shell basename $(PWD) | tr -cd '[:alnum:]' | tr A-Z a-z)
+UID=$(shell id -u)
+GID=$(shell id -g)
+
+.PHONY: all
 
 
 all: clean
-
-	mkdir --parents $(PWD)/build/Eog.AppDir
-	apprepo --destination=$(PWD)/build appdir eog eog-plugin-exif-display eog-plugin-export-to-folder eog-plugin-fit-to-width \
-												eog-plugin-fullscreen-background eog-plugin-hide-titlebar eog-plugin-map \
-												eog-plugin-maximize-windows eog-plugin-picasa eog-plugin-python-console eog-plugin-send-by-mail \
-												eog-plugin-slideshow-shuffle eog-plugins eog-plugins-common
-
-	echo "exec \$${APPDIR}/bin/eog \"\$${@}\"" >> $(PWD)/build/Eog.AppDir/AppRun
-
-	rm --force $(PWD)/build/Eog.AppDir/*.desktop		| true
-	rm --force $(PWD)/build/Eog.AppDir/*.svg			| true
-	rm --force $(PWD)/build/Eog.AppDir/*.png			| true
-
-	cp -r --force $(PWD)/AppDir/*.desktop	$(PWD)/build/Eog.AppDir/	| true
-	cp -r --force $(PWD)/AppDir/*.svg		$(PWD)/build/Eog.AppDir/ 	| true
-	cp -r --force $(PWD)/AppDir/*.png		$(PWD)/build/Eog.AppDir/ 	| true
-
-	export ARCH=x86_64 && bin/appimagetool.AppImage $(PWD)/build/Eog.AppDir $(PWD)/Eog.AppImage
-	chmod +x $(PWD)/Eog.AppImage
+	$(DOCKER_COMPOSE) stop
+	$(DOCKER_COMPOSE) up --build --no-start
+	$(DOCKER_COMPOSE) up -d  "appimage"
+	$(DOCKER_COMPOSE) run    "appimage" make all
+	$(DOCKER_COMPOSE) run    "appimage" chown -R $(UID):$(GID) ./
+	$(DOCKER_COMPOSE) stop
 
 clean:
-	rm -rf $(PWD)/build
+	$(DOCKER_COMPOSE) up -d  "appimage"
+	$(DOCKER_COMPOSE) run    "appimage" make clean
+	$(DOCKER_COMPOSE) rm --stop --force
